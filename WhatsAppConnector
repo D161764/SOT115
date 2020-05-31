@@ -1,0 +1,13 @@
+exports.handler = function(context, event, callback) {
+console.log('invoked with', event)
+global.twiml = new Twilio.twiml.MessagingResponse();
+    var sapcai = require('sapcai')
+	let build = new sapcai.build('<CAI APi KEY>', 'en')
+  build.dialog({ type: 'text', content: event.Body}, { conversationId: event.From })
+  .then(function(res) {
+      'debugger';
+    dta = res.messages[0].content;
+    twiml.message(dta);
+    callback(null, twiml);
+  })	
+};
