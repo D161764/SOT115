@@ -1,0 +1,66 @@
+const bodyParser = require('body-parser')
+const builder = require ('botbuilder')
+const  nodefetch =  require('node-fetch')
+const sapcai = require ('sapcai')
+var restify = require('restify');
+const { URLSearchParams } = require('url');
+// Setup Restify Server 
+var server = restify.createServer(); 
+server.listen(process.env.port || process.env.PORT || 3000, 
+function () {    
+    console.log('%s listening to %s', server.name, server.url);  
+}); 
+// chat connector for communicating with the Bot Framework Service 
+var connector = new builder.ChatConnector({     
+    appId: '<Your_App_ID>',     
+    appPassword: '<Your_App_Password>'
+});
+// Listen for messages from users  
+var inMemoryStorage = new builder.MemoryBotStorage();
+var bot = new builder.UniversalBot(connector).set('storage', inMemoryStorage);
+server.post('/api/messages',  connector.listen());
+bot.dialog('/', async function (session) {
+    var build = new sapcai.build('<Your_CAI_Token>', 'en')
+    var bearerToken = await getToken();
+    var email = await getMemberEmail(bearerToken,session.message.address.conversation.id)
+
+    build.dialog({ type: 'text', content: session.message.text}, { conversationId: session.message.address.conversation.id },{mail:email,name:session.message.address.user.name})
+     .then(res => {
+        session.send(res.messages[0].content);
+  
+});
+
+});
+
+async function getMemberEmail(token,conversationId){
+    var host_url = 'https://smba.trafficmanager.net/emea/v3/conversations/'+conversationId+'/members/'
+    const result = await nodefetch (host_url,{
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json',
+        Authorization: token, 
+        Accept : 'application/json' }
+
+  });
+  const output = await result.json();
+  return output[0].email;
+    
+}
+
+async function getToken(){
+const host_url = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token'
+    const params = new URLSearchParams();
+params.append('grant_type', 'client_credentials');
+params.append('client_id', '<Your_Azure_Client_ID');
+params.append('client_secret', '<Your_Azure_Client_Secret>');
+params.append('scope', 'https://api.botframework.com/.default');
+
+const result = await nodefetch (host_url,{
+    method: 'POST',
+    body:    params,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded'}
+
+});
+var output = await result.json();
+output = output.token_type+' '+output.access_token;
+return output;
+}
